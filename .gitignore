@@ -82,3 +82,8 @@ DerivedDataCache/*
 
 # Rider user specific files
 .idea/
+
+
+# 要らなそうなやつ
+*.opendb
+Plugins/Developer/RiderLink/*
