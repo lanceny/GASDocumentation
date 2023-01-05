@@ -99,12 +99,16 @@ bool AGDPlayerController::SetRespawnCountdown_Validate(float RespawnTimeRemainin
 // Server only
 void AGDPlayerController::OnPossess(APawn* InPawn)
 {
+	// ドキュメントを読んでる感じだと、コントローラーがポーンを所有後にASCの初期化をすべきだから、ここで初期化してるっぽい
+	
 	Super::OnPossess(InPawn);
 
 	AGDPlayerState* PS = GetPlayerState<AGDPlayerState>();
 	if (PS)
 	{
 		// Init ASC with PS (Owner) and our new Pawn (AvatarActor)
+		// PlayerState（オーナー）と新しいポーン（AvatarActor）によるASCの開始
+		// playerstateがASCを持ってて、その物理表現であるポーンがAvatarActor
 		PS->GetAbilitySystemComponent()->InitAbilityActorInfo(PS, InPawn);
 	}
 }

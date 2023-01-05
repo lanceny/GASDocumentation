@@ -19,5 +19,6 @@ public:
 	static UGDAssetManager& Get();
 
 	/** Starts initial load, gets called from InitializeObjectReferences */
+	// InitializeObjectReferencesから呼び出され、初期ロードを開始する。
 	virtual void StartInitialLoading() override;
 };

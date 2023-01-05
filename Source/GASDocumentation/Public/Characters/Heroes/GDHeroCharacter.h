@@ -21,6 +21,7 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	// Only called on the Server. Calls before Server's AcknowledgePossession.
+	// Serverでのみ呼び出される。Server の AcknowledgePossession の前に呼び出される。
 	virtual void PossessedBy(AController* NewController) override;
 
 	class USpringArmComponent* GetCameraBoom();
@@ -108,5 +109,9 @@ protected:
 	// Called from both SetupPlayerInputComponent and OnRep_PlayerState because of a potential race condition where the PlayerController might
 	// call ClientRestart which calls SetupPlayerInputComponent before the PlayerState is repped to the client so the PlayerState would be null in SetupPlayerInputComponent.
 	// Conversely, the PlayerState might be repped before the PlayerController calls ClientRestart so the Actor's InputComponent would be null in OnRep_PlayerState.
+	// 競合状態になる可能性があるため、SetupPlayerInputComponent と OnRep_PlayerState の両方から呼び出されます。
+	// PlayerController が ClientRestart を呼び出して SetupPlayerInputComponent を呼び出すと、
+	// PlayerState がクライアントに取り込まれて SetupPlayerInputComponent では PlayerState が NULL となるため、その前にクライアントが呼び出される可能性があるためです。
+	// 逆に、PlayerControllerがClientRestartを呼び出す前にPlayerStateがrepされるかもしれないので、OnRep_PlayerStateでActorのInputComponentがNULLになる。
 	void BindASCInput();
 };

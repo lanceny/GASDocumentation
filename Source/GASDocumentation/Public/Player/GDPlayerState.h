@@ -9,7 +9,8 @@
 #include "GDPlayerState.generated.h"
 
 /**
- * 
+PlayerStateは、サーバー（またはスタンドアロン・ゲーム）上のすべてのプレイヤーに対して作成される
+PlayerStateはすべてのクライアントに複製され、プレイヤーのネットワークゲーム関連情報（プレイネーム、スコアなど）を含む
  */
 UCLASS()
 class GASDOCUMENTATION_API AGDPlayerState : public APlayerState, public IAbilitySystemInterface
@@ -33,6 +34,7 @@ public:
 
 	/**
 	* Getters for attributes from GDAttributeSetBase. Returns Current Value unless otherwise specified.
+	* GDAttributeSetBase の attributesのゲッターです。特に指定がない限り、現在値を返します。
 	*/
 
 	UFUNCTION(BlueprintCallable, Category = "GASDocumentation|GDPlayerState|Attributes")

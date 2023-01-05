@@ -17,12 +17,28 @@ UGDAttributeSetBase::UGDAttributeSetBase()
 	HitDirectionLeftTag = FGameplayTag::RequestGameplayTag(FName("Effect.HitReact.Left"));
 }
 
+/**
+* "On Aggregator Change"タイプのイベントはここに置くことができ、アクティブなgameplay effectsがattributeアグリゲータに追加または削除されたときに呼び出されるかもしれません。
+* アグリゲータは、追加、削除、修正、モディファイアの変更、イミュニティ、スタッキングルールなど、様々な理由で変更されることがあります。
+* attributeに変更が加えられる直前に呼び出されます。
+* これは、PreAttributeModify/PostAttribute modifyよりも低レベルです。
+* あらゆるものがこれを引き起こす可能性があるため、ここに提供される追加のコンテキストはありません。
+* エフェクトの実行、持続時間に基づくエフェクト、エフェクトの削除、イミュニティの適用、スタッキングルールの変更などです。
+* この関数は、「Health = Clamp(Health, 0, MaxHealth)」のようなことを強制するためのものであり、「ダメージが適用されたら、この追加事項をトリガーする」などというものではありません。
+* NewValueは変更可能な参照なので、新しく適用された値もクランプすることができます。
+ */
+// attributeの種類によっては、attributeの変更に伴って別の値を変更したりとかの何らかの副作用を持たせたい場合がある
+// 例えば体力やマナの最大値が変更されたときは、それに応じて現在の体力やマナを最大値の割合に応じて調整させたい
+// そういうときに、この関数はattributeを変更する前に実行される関数なので、この中で処理を書く
 void UGDAttributeSetBase::PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)
 {
 	// This is called whenever attributes change, so for max health/mana we want to scale the current totals to match
+	// これは attributesが変更されるたびに呼び出されるため、最大のヘルス/マナの場合、現在の合計を一致させるためにスケールしたい
 	Super::PreAttributeChange(Attribute, NewValue);
 
 	// If a Max value changes, adjust current to keep Current % of Current to Max
+	// Max値が変化した場合、元の最大値と値の割合を維持するように調整する。
+	// GetMaxHealthAttributeは、ヘッダーの一番上に定義されているマクロに由来します。
 	if (Attribute == GetMaxHealthAttribute()) // GetMaxHealthAttribute comes from the Macros defined at the top of the header
 	{
 		AdjustAttributeForMaxChange(Health, MaxHealth, NewValue, GetHealthAttribute());
@@ -38,10 +54,14 @@ void UGDAttributeSetBase::PreAttributeChange(const FGameplayAttribute& Attribute
 	else if (Attribute == GetMoveSpeedAttribute())
 	{
 		// Cannot slow less than 150 units/s and cannot boost more than 1000 units/s
+		// // 150台/秒以下のスローは不可、1000台/秒以上のブーストは不可
 		NewValue = FMath::Clamp<float>(NewValue, 150, 1000);
 	}
 }
-
+/*
+* GameplayEffectが実行される直前に呼び出され、属性の基本値が変更されます。それ以上の変更はできません。
+* これは、「実行」中にのみ呼び出されます。例：アトリビュートの「基本値」の修正。5秒間の移動速度+10バフのようなGameplayEffectの適用中には呼び出されません。
+ */
 void UGDAttributeSetBase::PostGameplayEffectExecute(const FGameplayEffectModCallbackData & Data)
 {
 	Super::PostGameplayEffectExecute(Data);
@@ -53,6 +73,7 @@ void UGDAttributeSetBase::PostGameplayEffectExecute(const FGameplayEffectModCall
 	Data.EffectSpec.GetAllAssetTags(SpecAssetTags);
 
 	// Get the Target actor, which should be our owner
+	// オーナーであるはずのターゲット・アクタを取得する
 	AActor* TargetActor = nullptr;
 	AController* TargetController = nullptr;
 	AGDCharacterBase* TargetCharacter = nullptr;
@@ -79,7 +100,8 @@ void UGDAttributeSetBase::PostGameplayEffectExecute(const FGameplayEffectModCall
 			}
 		}
 
-		// Use the controller to find the source pawn
+		// Use the controller to find the source pawn]
+		// コントローラーでソースポーンを探す
 		if (SourceController)
 		{
 			SourceCharacter = Cast<AGDCharacterBase>(SourceController->GetPawn());
@@ -90,6 +112,7 @@ void UGDAttributeSetBase::PostGameplayEffectExecute(const FGameplayEffectModCall
 		}
 
 		// Set the causer actor based on context if it's set
+		// コンテキストが設定されている場合は、コンテキストに基づいた因果関係のあるアクターを設定する
 		if (Context.GetEffectCauser())
 		{
 			SourceActor = Context.GetEffectCauser();
@@ -99,6 +122,7 @@ void UGDAttributeSetBase::PostGameplayEffectExecute(const FGameplayEffectModCall
 	if (Data.EvaluatedData.Attribute == GetDamageAttribute())
 	{
 		// Try to extract a hit result
+		// ヒット結果の抽出を試みる
 		FHitResult HitResult;
 		if (Context.GetHitResult())
 		{
@@ -106,6 +130,7 @@ void UGDAttributeSetBase::PostGameplayEffectExecute(const FGameplayEffectModCall
 		}
 
 		// Store a local copy of the amount of damage done and clear the damage attribute
+		// 与えたダメージの量のローカルコピーを保存し、ダメージの attributeをクリアする
 		const float LocalDamageDone = GetDamage();
 		SetDamage(0.f);
 	
@@ -113,6 +138,8 @@ void UGDAttributeSetBase::PostGameplayEffectExecute(const FGameplayEffectModCall
 		{
 			// If character was alive before damage is added, handle damage
 			// This prevents damage being added to dead things and replaying death animations
+			// ダメージが加えられる前にキャラクターが生きていた場合、ダメージを処理する
+			// これにより、死んだものにダメージが追加され、死亡時のアニメーションが再生されるのを防ぐことができます
 			bool WasAlive = true;
 
 			if (TargetCharacter)
@@ -126,15 +153,18 @@ void UGDAttributeSetBase::PostGameplayEffectExecute(const FGameplayEffectModCall
 			}
 
 			// Apply the health change and then clamp it
+			// ヘルスチェンジを適用して、クランプする
 			const float NewHealth = GetHealth() - LocalDamageDone;
 			SetHealth(FMath::Clamp(NewHealth, 0.0f, GetMaxHealth()));
 
 			if (TargetCharacter && WasAlive)
 			{
 				// This is the log statement for damage received. Turned off for live games.
+				// 受けたダメージのログ文です。ライブゲームではオフにしています。
 				//UE_LOG(LogTemp, Log, TEXT("%s() %s Damage Received: %f"), TEXT(__FUNCTION__), *GetOwningActor()->GetName(), LocalDamageDone);
 
 				// Play HitReact animation and sound with a multicast RPC.
+				// マルチキャストRPCでHitReactのアニメーションとサウンドを再生します。
 				const FHitResult* Hit = Data.EffectSpec.GetContext().GetHitResult();
 
 				if (Hit)
@@ -159,10 +189,12 @@ void UGDAttributeSetBase::PostGameplayEffectExecute(const FGameplayEffectModCall
 				else
 				{
 					// No hit result. Default to front.
+					// ヒットリザルトはない。デフォルトはフロント。
 					TargetCharacter->PlayHitReact(HitDirectionFrontTag, SourceCharacter);
 				}
 
 				// Show damage number for the Source player unless it was self damage
+				// 自己ダメージでない限り、Sourceプレイヤーのダメージ数を表示する。
 				if (SourceActor != TargetActor)
 				{
 					AGDPlayerController* PC = Cast<AGDPlayerController>(SourceController);
@@ -176,9 +208,12 @@ void UGDAttributeSetBase::PostGameplayEffectExecute(const FGameplayEffectModCall
 				{
 					// TargetCharacter was alive before this damage and now is not alive, give XP and Gold bounties to Source.
 					// Don't give bounty to self.
+					// TargetCharacterがこのダメージの前に生きていて、今は生きていない場合、SourceにXPとGoldのバウンティが与えられます。
+					// 自分で自分にダメージを与えてる場合、XPとGoldは与えちゃダメ
 					if (SourceController != TargetController)
 					{
 						// Create a dynamic instant Gameplay Effect to give the bounties
+						// バウンティを与えるためのダイナミックなインスタントゲームプレイエフェクトの作成
 						UGameplayEffect* GEBounty = NewObject<UGameplayEffect>(GetTransientPackage(), FName(TEXT("Bounty")));
 						GEBounty->DurationPolicy = EGameplayEffectDurationType::Instant;
 
@@ -205,6 +240,8 @@ void UGDAttributeSetBase::PostGameplayEffectExecute(const FGameplayEffectModCall
 	{
 		// Handle other health changes.
 		// Health loss should go through Damage.
+		// その他の体調の変化に対応する。
+		// 体力が減るときはDamageを通す。
 		SetHealth(FMath::Clamp(GetHealth(), 0.0f, GetMaxHealth()));
 	} // Health
 	else if (Data.EvaluatedData.Attribute == GetManaAttribute())
@@ -223,6 +260,8 @@ void UGDAttributeSetBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
+	// REPNOTIFY_OnChanged :  ローカル値から変更された場合のみ、プロパティのRepNotify関数を呼び出す。
+	// REPNOTIFY_Always : サーバーから受信したとき、常にプロパティのRepNotify関数を呼び出す
 	DOREPLIFETIME_CONDITION_NOTIFY(UGDAttributeSetBase, Health, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(UGDAttributeSetBase, MaxHealth, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(UGDAttributeSetBase, HealthRegenRate, COND_None, REPNOTIFY_Always);
@@ -257,6 +296,8 @@ void UGDAttributeSetBase::AdjustAttributeForMaxChange(FGameplayAttributeData & A
 
 void UGDAttributeSetBase::OnRep_Health(const FGameplayAttributeData& OldHealth)
 {
+	// これは、クライアントによって予測的に変更されるAttributeを処理するために、
+	// RepNotify 関数で使用できるヘルパー マクロです。
 	GAMEPLAYATTRIBUTE_REPNOTIFY(UGDAttributeSetBase, Health, OldHealth);
 }
 

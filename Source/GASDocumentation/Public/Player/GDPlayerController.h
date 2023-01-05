@@ -29,9 +29,13 @@ public:
 	bool ShowDamageNumber_Validate(float DamageAmount, AGDCharacterBase* TargetCharacter);
 
 	// Simple way to RPC to the client the countdown until they respawn from the GameMode. Will be latency amount of out sync with the Server.
+	// GameModeからRespawnまでのカウントダウンをクライアントにRPCする簡単な方法。サーバーと同期していないため、レイテンシーが大きくなる。
+	// Clientをつけてるから、サーバー側で実行されたら、サーバー側では実行せず、client側で実行する
 	UFUNCTION(Client, Reliable, WithValidation)
 	void SetRespawnCountdown(float RespawnTimeRemaining);
 	void SetRespawnCountdown_Implementation(float RespawnTimeRemaining);
+	// UFUNCTIONで WithValidationを指定した場合、_Validateのサフィックスがついたこの関数がtrueを返せば、_Implementationの実行が許可され
+	// falseを返すと実行が阻止されるようなバリデーションを定義できる
 	bool SetRespawnCountdown_Validate(float RespawnTimeRemaining);
 
 protected:

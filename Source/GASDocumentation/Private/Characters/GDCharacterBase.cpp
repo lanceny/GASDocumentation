@@ -16,8 +16,10 @@ AGDCharacterBase::AGDCharacterBase(const class FObjectInitializer& ObjectInitial
  	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = false;
 
+	// カプセルコンポーネントに対して、見えるもの(ECC_Visibility)に重なる(ECR_Overlap)ようなコリジョンの応答になるように設定する
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Visibility, ECollisionResponse::ECR_Overlap);
 
+	// どんな距離でもレプリケーションされる
 	bAlwaysRelevant = true;
 
 	// Cache tags
@@ -52,9 +54,14 @@ void AGDCharacterBase::RemoveCharacterAbilities()
 	}
 
 	// Remove any abilities added from a previous call. This checks to make sure the ability is in the startup 'CharacterAbilities' array.
+	// 以前の呼び出しで追加された能力を削除します。これは、起動時の 'CharacterAbilities' 配列にその能力があるかどうかを確認するものです。
 	TArray<FGameplayAbilitySpecHandle> AbilitiesToRemove;
+	
+	// FGameplayAbilitySpecとは
+	// アビリティシステムコンポーネントにホストされる、activatableなアビリティのspec(仕様？)。これは能力が何であるか（どのクラス、どのレベル、入力バインディングなど）を定義し、またインスタンス化/アクティブ化されている能力の外に保持される必要があるランタイムステートを保持するものです。
 	for (const FGameplayAbilitySpec& Spec : AbilitySystemComponent->GetActivatableAbilities())
 	{
+		// SourceObjectは、このアビリティが作成されたオブジェクトのことで、アクターまたは静的オブジェクトにすることができる
 		if ((Spec.SourceObject == this) && CharacterAbilities.Contains(Spec.Ability->GetClass()))
 		{
 			AbilitiesToRemove.Add(Spec.Handle);
@@ -62,6 +69,7 @@ void AGDCharacterBase::RemoveCharacterAbilities()
 	}
 
 	// Do in two passes so the removal happens after we have the full list
+	// 2回に分けて行うので、全リストが揃った後に削除する。
 	for (int32 i = 0; i < AbilitiesToRemove.Num(); i++)
 	{
 		AbilitySystemComponent->ClearAbility(AbilitiesToRemove[i]);
@@ -74,15 +82,21 @@ EGDHitReactDirection AGDCharacterBase::GetHitReactDirection(const FVector & Impa
 {
 	const FVector& ActorLocation = GetActorLocation();
 	// PointPlaneDist is super cheap - 1 vector subtraction, 1 dot product.
+	// アクターを中心に、正面から後ろ方向へ区切ったときの面と、ImpactPointとの距離
 	float DistanceToFrontBackPlane = FVector::PointPlaneDist(ImpactPoint, ActorLocation, GetActorRightVector());
+	// アクターを中心に、右から左方向へ区切ったときの面と、ImpactPointとの距離
 	float DistanceToRightLeftPlane = FVector::PointPlaneDist(ImpactPoint, ActorLocation, GetActorForwardVector());
 
-
+	// 左右方向の面との距離のほうが大きいってことは、アクターを中心として、当たったところが、前の方あるいは後ろの方にある
+	// つまりアクタをO点として、正面が正方向のy軸、右を正方向のx軸としたら、衝突点がx座標よりy座標の方が絶対値が大きい
+	// だから衝突方向を前か後ろのどっちかに絞れる…☆
 	if (FMath::Abs(DistanceToFrontBackPlane) <= FMath::Abs(DistanceToRightLeftPlane))
 	{
 		// Determine if Front or Back
 
 		// Can see if it's left or right of Left/Right plane which would determine Front or Back
+		// 左/右プレーンの左か右か、つまり前か後ろかを判断することができる。
+		// ☆の議論の続きだが、y座標が正なら前だし、負なら後ろって意味合い
 		if (DistanceToRightLeftPlane >= 0)
 		{
 			return EGDHitReactDirection::Front;
@@ -241,10 +255,12 @@ void AGDCharacterBase::Die()
 
 	if (AbilitySystemComponent.IsValid())
 	{
+		// 全てのアビリティをキャンセル、ignore インスタンスはキャンセルしない
 		AbilitySystemComponent->CancelAllAbilities();
 
 		FGameplayTagContainer EffectTagsToRemove;
 		EffectTagsToRemove.AddTag(EffectRemoveOnDeathTag);
+		// アクティブなエフェクト(今まさに適用されてるエフェクト的な？)を削除する
 		int32 NumEffectsRemoved = AbilitySystemComponent->RemoveActiveEffectsWithTags(EffectTagsToRemove);
 
 		AbilitySystemComponent->AddLooseGameplayTag(DeadTag);
@@ -273,12 +289,14 @@ void AGDCharacterBase::BeginPlay()
 
 void AGDCharacterBase::AddCharacterAbilities()
 {
-	// Grant abilities, but only on the server	
+	// Grant abilities, but only on the server
+	// 能力を付与する、サーバー側でのみ実行可能
 	if (GetLocalRole() != ROLE_Authority || !AbilitySystemComponent.IsValid() || AbilitySystemComponent->bCharacterAbilitiesGiven)
 	{
 		return;
 	}
 
+	// ASCにアビリティを付与
 	for (TSubclassOf<UGDGameplayAbility>& StartupAbility : CharacterAbilities)
 	{
 		AbilitySystemComponent->GiveAbility(

@@ -23,5 +23,6 @@ public:
 	FReceivedDamageDelegate ReceivedDamage;
 
 	// Called from GDDamageExecCalculation. Broadcasts on ReceivedDamage whenever this ASC receives damage.
+	// GDDamageExecCalculationから呼び出されます。このASCがダメージを受けるたびにReceivedDamageにブロードキャストする。
 	virtual void ReceiveDamage(UGDAbilitySystemComponent* SourceASC, float UnmitigatedDamage, float MitigatedDamage);
 };

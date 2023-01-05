@@ -12,24 +12,35 @@
 AGDPlayerState::AGDPlayerState()
 {
 	// Create ability system component, and set it to be explicitly replicated
+	// ability system componentを作成し、明示的にレプリケートされるように設定する。
 	AbilitySystemComponent = CreateDefaultSubobject<UGDAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
 	AbilitySystemComponent->SetIsReplicated(true);
 
 	// Mixed mode means we only are replicated the GEs to ourself, not the GEs to simulated proxies. If another GDPlayerState (Hero) receives a GE,
 	// we won't be told about it by the Server. Attributes, GameplayTags, and GameplayCues will still replicate to us.
+	// Mixedモードとは、自分自身へのGEのみ複製され、模擬プロキシにはGEが複製されないことを意味する
+	// 他のGDPlayerState（Hero）がGEを受け取った場合、サーバーからそのことを知らされることはない。
+	// Attributes、GameplayTags、GameplayCuesは、引き続き私たちにレプリケートされる
 	AbilitySystemComponent->SetReplicationMode(EGameplayEffectReplicationMode::Mixed);
 
 	// Create the attribute set, this replicates by default
 	// Adding it as a subobject of the owning actor of an AbilitySystemComponent
 	// automatically registers the AttributeSet with the AbilitySystemComponent
+	// attribute setを作成する、これはデフォルトで複製される
+	// AbilitySystemComponentの所有するアクタのサブオブジェクトとしてそれを追加する
+	// 自動的にAbilitySystemComponentにAttributeSetを登録される
 	AttributeSetBase = CreateDefaultSubobject<UGDAttributeSetBase>(TEXT("AttributeSetBase"));
 
 	// Set PlayerState's NetUpdateFrequency to the same as the Character.
 	// Default is very low for PlayerStates and introduces perceived lag in the ability system.
 	// 100 is probably way too high for a shipping game, you can adjust to fit your needs.
+	// PlayerStateのNetUpdateFrequencyをCharacterと同じに設定する
+	// デフォルトではPlayerStateの更新頻度が非常に低く、アビリティシステムに遅延が発生する
+	// 100は出荷時の設定としては高すぎるかもしれませんが、必要に応じて調整する
 	NetUpdateFrequency = 100.0f;
 
 	// Cache tags
+	// TagName に対応するFGameplayTagを取得
 	DeadTag = FGameplayTag::RequestGameplayTag(FName("State.Dead"));
 }
 
@@ -148,6 +159,7 @@ void AGDPlayerState::BeginPlay()
 	if (AbilitySystemComponent)
 	{
 		// Attribute change callbacks
+		// Attributeが変わったときのコールバックを定義する
 		HealthChangedDelegateHandle = AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(AttributeSetBase->GetHealthAttribute()).AddUObject(this, &AGDPlayerState::HealthChanged);
 		MaxHealthChangedDelegateHandle = AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(AttributeSetBase->GetMaxHealthAttribute()).AddUObject(this, &AGDPlayerState::MaxHealthChanged);
 		HealthRegenRateChangedDelegateHandle = AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(AttributeSetBase->GetHealthRegenRateAttribute()).AddUObject(this, &AGDPlayerState::HealthRegenRateChanged);
@@ -162,6 +174,9 @@ void AGDPlayerState::BeginPlay()
 		CharacterLevelChangedDelegateHandle = AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(AttributeSetBase->GetCharacterLevelAttribute()).AddUObject(this, &AGDPlayerState::CharacterLevelChanged);
 
 		// Tag change callbacks
+		// GameplayTagsのデリゲート
+		// NewOrRemovedを指定した場合,タグが新規作成されたとき、または完全に削除されたときのみイベントが発生します。
+		// AnyCountChangeを指定した場合、タグの"count"が変更されるたびにイベントが発生
 		AbilitySystemComponent->RegisterGameplayTagEvent(FGameplayTag::RequestGameplayTag(FName("State.Debuff.Stun")), EGameplayTagEventType::NewOrRemoved).AddUObject(this, &AGDPlayerState::StunTagChanged);
 	}
 }
@@ -387,16 +402,21 @@ void AGDPlayerState::CharacterLevelChanged(const FOnAttributeChangeData & Data)
 	}
 }
 
+// スタンしたときのコールバック関数
 void AGDPlayerState::StunTagChanged(const FGameplayTag CallbackTag, int32 NewCount)
 {
 	if (NewCount > 0)
 	{
+		// スタンされたことによって止めるべきアビリティを示すタグをコンテナに入れる
+		// 因みに複数のタグを扱うときは配列よりもコンテナの方が効率が良い
 		FGameplayTagContainer AbilityTagsToCancel;
 		AbilityTagsToCancel.AddTag(FGameplayTag::RequestGameplayTag(FName("Ability")));
 
+		// スタンされたことを無視できるアビリティを示すタグをコンテナに入れる
 		FGameplayTagContainer AbilityTagsToIgnore;
 		AbilityTagsToIgnore.AddTag(FGameplayTag::RequestGameplayTag(FName("Ability.NotCanceledByStun")));
 
+		// 指定されたタグを持つすべてのアビリティをキャンセルします。無視インスタンスをキャンセルしません
 		AbilitySystemComponent->CancelAbilities(&AbilityTagsToCancel, &AbilityTagsToIgnore);
 	}
 }

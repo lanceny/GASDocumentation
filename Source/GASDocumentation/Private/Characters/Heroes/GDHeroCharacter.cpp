@@ -273,19 +273,25 @@ void AGDHeroCharacter::OnRep_PlayerState()
 	if (PS)
 	{
 		// Set the ASC for clients. Server does this in PossessedBy.
+		// クライアントのASCを設定する。サーバーはPossessedByでこれを行う。
 		AbilitySystemComponent = Cast<UGDAbilitySystemComponent>(PS->GetAbilitySystemComponent());
 
 		// Init ASC Actor Info for clients. Server will init its ASC when it possesses a new Actor.
+		// クライアント側でのASCのActor情報を初期化する。サーバーは新しいActorを所有すると、そのASCを初期化します。
 		AbilitySystemComponent->InitAbilityActorInfo(PS, this);
 
 		// Bind player input to the AbilitySystemComponent. Also called in SetupPlayerInputComponent because of a potential race condition.
+		// プレイヤーの入力をAbilitySystemComponentにバインドします。レースコンディションの可能性があるため、SetupPlayerInputComponentでも呼び出されます。
 		BindASCInput();
 
 		// Set the AttributeSetBase for convenience attribute functions
+		// 便宜上、attribute関数のAttributeSetBaseを設定する。
 		AttributeSetBase = PS->GetAttributeSetBase();
 
 		// If we handle players disconnecting and rejoining in the future, we'll have to change this so that posession from rejoining doesn't reset attributes.
 		// For now assume possession = spawn/respawn.
+		// 将来的にプレイヤーの切断と再参加を処理する場合、再参加によるposessionが属性をリセットしないように変更する必要があります。
+		// 今のところ、ポゼッション＝スポーン／リスポーンと仮定します。
 		InitializeAttributes();
 
 		AGDPlayerController* PC = Cast<AGDPlayerController>(GetController());
@@ -295,15 +301,19 @@ void AGDHeroCharacter::OnRep_PlayerState()
 		}
 
 		// Simulated on proxies don't have their PlayerStates yet when BeginPlay is called so we call it again here
+		// シミュレートされたプロキシはBeginPlayが呼ばれたときにはまだPlayerStateを持っていないので、ここで再度呼び出します。
 		InitializeFloatingStatusBar();
 
 
 		// Respawn specific things that won't affect first possession.
+		// 最初のpossessionに影響しないような特定のものをリスポーンする。
 
 		// Forcibly set the DeadTag count to 0
+		// DeadTagのカウントを強制的に0にする。
 		AbilitySystemComponent->SetTagMapCount(DeadTag, 0);
 
 		// Set Health/Mana/Stamina to their max. This is only necessary for *Respawn*.
+		// ヘルス/マナ/スタミナを最大値に設定します。これは*Respawn*の時のみ必要です。
 		SetHealth(GetMaxHealth());
 		SetMana(GetMaxMana());
 		SetStamina(GetMaxStamina());

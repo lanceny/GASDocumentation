@@ -8,6 +8,7 @@
 #include "GDAttributeSetBase.generated.h"
 
 // Uses macros from AttributeSet.h
+// これはあなたの Attributesのゲッターとセッターを自動的に生成します
 #define ATTRIBUTE_ACCESSORS(ClassName, PropertyName) \
 	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(ClassName, PropertyName) \
 	GAMEPLAYATTRIBUTE_VALUE_GETTER(PropertyName) \
@@ -121,10 +122,13 @@ public:
 protected:
 	// Helper function to proportionally adjust the value of an attribute when it's associated max attribute changes.
 	// (i.e. When MaxHealth increases, Health increases by an amount that maintains the same percentage as before)
+	// 関連する最大属性が変化したときに、その属性の値を比例的に調整するためのヘルパー関数です。
+	// (例: MaxHealthが増加するとき、Healthは以前と同じ割合を維持する量だけ増加します)
 	void AdjustAttributeForMaxChange(FGameplayAttributeData& AffectedAttribute, const FGameplayAttributeData& MaxAttribute, float NewMaxValue, const FGameplayAttribute& AffectedAttributeProperty);
 
 	/**
 	* These OnRep functions exist to make sure that the ability system internal representations are synchronized properly during replication
+	* これらのOnRep関数は、レプリケーション時にアビリティシステムの内部表現が適切に同期されるようにするために存在します。
 	**/
 
 	UFUNCTION()

@@ -21,21 +21,32 @@ AGASDocumentationGameMode::AGASDocumentationGameMode()
 	}
 }
 
+// ヒーローが死んだら、死んだときのポーンを取り外して、新しく観戦のためのポーンをスポーンさせて、できたポーンをコントローラーにつける
+// で、一定時間後にRespawnHeroを実行する
+// もしプレイヤーのヒーローだったら、カウントダウンをセットする関数を実行する
 void AGASDocumentationGameMode::HeroDied(AController* Controller)
 {
 	FActorSpawnParameters SpawnParameters;
+	// アクターは (シェイプ コンポーネントに基づいて) 近くの衝突しない場所を見つけようとするが、見つからない場合でも常にスポーンする
 	SpawnParameters.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+	
+	// SpawnActor()はアクターをスポーンして、スポーンしたアクターのポインターを返す
+	// 観戦のためのポーンクラスを生成する
 	ASpectatorPawn* SpectatorPawn = GetWorld()->SpawnActor<ASpectatorPawn>(SpectatorClass, Controller->GetPawn()->GetActorTransform(), SpawnParameters);
 
+	// コントローラーに対して、ポーンの所有を取り消す
 	Controller->UnPossess();
+	// Possess()はauthorityの場合のみ実行されるらしい
 	Controller->Possess(SpectatorPawn);
 
 	FTimerHandle RespawnTimerHandle;
 	FTimerDelegate RespawnDelegate;
 
+	// 1つ目は実行する場所？、2つ目はバインドする関数ポインタ、3つ目は関数ポインタに渡す引数
 	RespawnDelegate = FTimerDelegate::CreateUObject(this, &AGASDocumentationGameMode::RespawnHero, Controller);
 	GetWorldTimerManager().SetTimer(RespawnTimerHandle, RespawnDelegate, RespawnDelay, false);
 
+	// プレイヤーのコントローラーにキャストすることで、プレイヤーかどうかを判定、AIだったらカウントダウンいらないから
 	AGDPlayerController* PC = Cast<AGDPlayerController>(Controller);
 	if (PC)
 	{
@@ -43,6 +54,8 @@ void AGASDocumentationGameMode::HeroDied(AController* Controller)
 	}
 }
 
+
+// 敵ヒーローのスポーン地点を取得する
 void AGASDocumentationGameMode::BeginPlay()
 {
 	Super::BeginPlay();
@@ -72,6 +85,7 @@ void AGASDocumentationGameMode::RespawnHero(AController * Controller)
 
 		AGDHeroCharacter* Hero = GetWorld()->SpawnActor<AGDHeroCharacter>(HeroClass, PlayerStart->GetActorLocation(), PlayerStart->GetActorRotation(), SpawnParameters);
 
+		// HeroDiedでつけた、観戦のポーンを取得して外して消す
 		APawn* OldSpectatorPawn = Controller->GetPawn();
 		Controller->UnPossess();
 		OldSpectatorPawn->Destroy();
